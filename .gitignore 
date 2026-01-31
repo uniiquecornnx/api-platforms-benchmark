@@ -1,0 +1,42 @@
+# API Keys and Secrets
+.env
+*.key
+secrets/
+
+# Node modules
+node_modules/
+package-lock.json
+yarn.lock
+
+# Benchmark Results
+benchmark-results-*.json
+results/
+*.csv
+
+# OS Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+*.zip
+*.tar.gz
+
+# Temporary files
+tmp/
+temp/
+.cache/

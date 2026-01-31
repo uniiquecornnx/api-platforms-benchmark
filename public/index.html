@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Benchmark Dashboard</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .card {
+            background: #1e293b;
+            border: 1px solid #334155;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const COLORS = {
+            alchemy: '#10b981',
+            mobula: '#eab308', 
+            codex: '#3b82f6'
+        };
+
+        function Dashboard() {
+            const [timeRange, setTimeRange] = useState('24h');
+            const [summaryData, setSummaryData] = useState([]);
+            const [isPriceRunning, setIsPriceRunning] = useState(false);
+            const [isWalletRunning, setIsWalletRunning] = useState(false);
+            const [walletAddress, setWalletAddress] = useState('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
+            const [lastUpdate, setLastUpdate] = useState(null);
+            const [refreshKey, setRefreshKey] = useState(0);
+
+            useEffect(() => {
+                loadSummary();
+            }, [timeRange, refreshKey]);
+
+            const loadSummary = async () => {
+                try {
+                    const res = await fetch(`/api/summary?range=${timeRange}`);
+                    const data = await res.json();
+                    setSummaryData(data);
+                    setLastUpdate(new Date());
+                } catch (err) {
+                    console.error('Error loading summary:', err);
+                }
+            };
+
+            const runPriceBenchmark = async () => {
+                setIsPriceRunning(true);
+                try {
+                    await fetch('/api/run-price-benchmark', { method: 'POST' });
+                    setTimeout(() => {
+                        setRefreshKey(k => k + 1);
+                        setIsPriceRunning(false);
+                    }, 2000);
+                } catch (err) {
+                    console.error('Error:', err);
+                    setIsPriceRunning(false);
+                }
+            };
+
+            const runWalletBenchmark = async () => {
+                setIsWalletRunning(true);
+                try {
+                    await fetch('/api/run-wallet-benchmark', { 
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ walletAddress })
+                    });
+                    setTimeout(() => {
+                        setRefreshKey(k => k + 1);
+                        setIsWalletRunning(false);
+                    }, 2000);
+                } catch (err) {
+                    console.error('Error:', err);
+                    setIsWalletRunning(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen p-6">
+                    <div className="mb-6">
+                        <h1 className="text-3xl font-bold text-white mb-4">
+                            API Benchmark Dashboard
+                        </h1>
+
+                        {/* Test Controls */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                            {/* Price Test */}
+                            <div className="card rounded-lg p-4">
+                                <h3 className="text-white font-semibold mb-2">Test 1: Token Price Fetching</h3>
+                                <p className="text-sm text-gray-400 mb-3">
+                                    Tests USDT & ETH price APIs (10 requests each)
+                                </p>
+                                <button
+                                    onClick={runPriceBenchmark}
+                                    disabled={isPriceRunning}
+                                    className={`w-full px-4 py-2 rounded font-semibold ${
+                                        isPriceRunning
+                                            ? 'bg-gray-600 text-gray-400'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                    }`}
+                                >
+                                    {isPriceRunning ? '🔄 Running Price Test...' : '▶️ Run Price Test'}
+                                </button>
+                            </div>
+
+                            {/* Wallet Test */}
+                            <div className="card rounded-lg p-4">
+                                <h3 className="text-white font-semibold mb-2">Test 2: Wallet Balance Fetching</h3>
+                                <input
+                                    type="text"
+                                    value={walletAddress}
+                                    onChange={(e) => setWalletAddress(e.target.value)}
+                                    className="w-full px-3 py-2 rounded bg-gray-700 text-white border border-gray-600 mb-2 text-sm"
+                                    placeholder="0x..."
+                                />
+                                <button
+                                    onClick={runWalletBenchmark}
+                                    disabled={isWalletRunning}
+                                    className={`w-full px-4 py-2 rounded font-semibold ${
+                                        isWalletRunning
+                                            ? 'bg-gray-600 text-gray-400'
+                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                    }`}
+                                >
+                                    {isWalletRunning ? '🔄 Running Wallet Test...' : '▶️ Run Wallet Test'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Time Range */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex gap-2">
+                                {['1h', '6h', '24h', '7d'].map(range => (
+                                    <button
+                                        key={range}
+                                        onClick={() => setTimeRange(range)}
+                                        className={`px-4 py-2 rounded ${
+                                            timeRange === range
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-700 text-gray-300'
+                                        }`}
+                                    >
+                                        {range}
+                                    </button>
+                                ))}
+                            </div>
+                            {lastUpdate && (
+                                <span className="text-sm text-gray-400">
+                                    Updated: {lastUpdate.toLocaleTimeString()}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* What's Being Tested */}
+                    <div className="card rounded-lg p-4 mb-6">
+                        <h3 className="font-semibold text-white mb-3">📊 Tests Breakdown</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <strong className="text-blue-400">Test 1: Token Price</strong>
+                                <ul className="ml-4 mt-1 space-y-1 text-gray-300">
+                                    <li>• <strong>Alchemy:</strong> GET /prices/v1/tokens/by-symbol</li>
+                                    <li>• <strong>Mobula:</strong> GET /api/2/token/price?address=...</li>
+                                    <li>• <strong>Codex:</strong> GraphQL getTokenPrices</li>
+                                    <li>• Tests USDT & ETH (10 calls each = 20 total per provider)</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <strong className="text-green-400">Test 2: Wallet Balance</strong>
+                                <ul className="ml-4 mt-1 space-y-1 text-gray-300">
+                                    <li>• <strong>Alchemy:</strong> alchemy_getTokenBalances</li>
+                                    <li>• <strong>Mobula:</strong> GET /wallet/portfolio</li>
+                                    <li>• <strong>Codex:</strong> GraphQL balances query</li>
+                                    <li>• 5 calls per provider</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <SummaryTable data={summaryData} />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                        <GraphCard 
+                            title="Failed Requests" 
+                            metric="failed-requests" 
+                            timeRange={timeRange} 
+                            refresh={refreshKey}
+                        />
+                        <GraphCard 
+                            title="Average Latency (ms)" 
+                            metric="avg-latency" 
+                            timeRange={timeRange}
+                            refresh={refreshKey}
+                        />
+                        <GraphCard 
+                            title="P95 Latency (ms)" 
+                            metric="p95-latency" 
+                            timeRange={timeRange}
+                            refresh={refreshKey}
+                        />
+                        <GraphCard 
+                            title="Success Rate (%)" 
+                            metric="success-rate" 
+                            timeRange={timeRange}
+                            refresh={refreshKey}
+                        />
+                    </div>
+                </div>
+            );
+        }
+
+        function SummaryTable({ data }) {
+            if (data.length === 0) {
+                return (
+                    <div className="card rounded-lg p-8 text-center">
+                        <p className="text-gray-400">No data yet. Run tests above to start collecting data.</p>
+                    </div>
+                );
+            }
+
+            const getLatencyColor = (val) => {
+                if (val < 150) return 'text-green-400';
+                if (val < 300) return 'text-yellow-400';
+                return 'text-red-400';
+            };
+
+            return (
+                <div className="card rounded-lg overflow-hidden mb-6">
+                    <table className="w-full">
+                        <thead className="bg-gray-800">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-gray-300">Provider</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Avg Latency</th>
+                                <th className="px-4 py-3 text-right text-gray-300">P50</th>
+                                <th className="px-4 py-3 text-right text-gray-300">P95</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Requests</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Failed</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Success %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {data.map(row => (
+                                <tr key={row.provider} className="border-t border-gray-700">
+                                    <td className="px-4 py-3">
+                                        <div className="flex items-center gap-2">
+                                            <div 
+                                                className="w-3 h-3 rounded-full"
+                                                style={{ background: COLORS[row.provider] }}
+                                            />
+                                            <span className="font-medium capitalize">{row.provider}</span>
+                                        </div>
+                                    </td>
+                                    <td className={`px-4 py-3 text-right font-mono ${getLatencyColor(row.avg_latency)}`}>
+                                        {row.avg_latency.toFixed(2)} ms
+                                    </td>
+                                    <td className={`px-4 py-3 text-right font-mono ${getLatencyColor(row.p50_latency)}`}>
+                                        {row.p50_latency.toFixed(2)} ms
+                                    </td>
+                                    <td className={`px-4 py-3 text-right font-mono ${getLatencyColor(row.p95_latency)}`}>
+                                        {row.p95_latency.toFixed(2)} ms
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono text-blue-400">
+                                        {row.requests}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono text-red-400">
+                                        {row.failed}
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono text-green-400">
+                                        {row.success_rate.toFixed(1)}%
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            );
+        }
+
+        function GraphCard({ title, metric, timeRange, refresh }) {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+            const [data, setData] = useState([]);
+
+            useEffect(() => {
+                loadData();
+            }, [metric, timeRange, refresh]);
+
+            useEffect(() => {
+                if (data.length > 0 && chartRef.current) {
+                    renderChart();
+                }
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [data]);
+
+            const loadData = async () => {
+                try {
+                    const res = await fetch(`/api/graph/${metric}?range=${timeRange}`);
+                    const json = await res.json();
+                    setData(json);
+                } catch (err) {
+                    console.error('Error loading graph:', err);
+                }
+            };
+
+            const renderChart = () => {
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                const ctx = chartRef.current.getContext('2d');
+
+                const datasets = ['alchemy', 'mobula', 'codex'].map(provider => ({
+                    label: provider.charAt(0).toUpperCase() + provider.slice(1),
+                    data: data.map(d => ({ x: new Date(d.time), y: d[provider] })),
+                    borderColor: COLORS[provider],
+                    backgroundColor: COLORS[provider] + '40',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: metric === 'failed-requests',
+                    spanGaps: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }));
+
+                chartInstance.current = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: '#e2e8f0', boxWidth: 12 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: timeRange === '1h' ? 'minute' : 'hour',
+                                    displayFormats: {
+                                        minute: 'HH:mm',
+                                        hour: 'MMM d HH:mm'
+                                    }
+                                },
+                                ticks: { color: '#94a3b8', maxRotation: 45 },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            }
+                        }
+                    }
+                });
+            };
+
+            return (
+                <div className="card rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+                    <div style={{ height: '250px' }}>
+                        {data.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                                No data yet. Run tests to see graphs.
+                            </div>
+                        ) : (
+                            <canvas ref={chartRef}></canvas>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<Dashboard />);
+    </script>
+</body>
+</html>
