@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Benchmark Dashboard</title>
+    <title>API Benchmark Dashboard - Enhanced</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -20,6 +20,16 @@
             background: #1e293b;
             border: 1px solid #334155;
         }
+        .metric-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-green { background: #10b98144; color: #10b981; }
+        .badge-yellow { background: #eab30844; color: #eab308; }
+        .badge-red { background: #ef444444; color: #ef4444; }
     </style>
 </head>
 <body>
@@ -37,6 +47,7 @@
         function Dashboard() {
             const [timeRange, setTimeRange] = useState('24h');
             const [summaryData, setSummaryData] = useState([]);
+            const [errorBreakdown, setErrorBreakdown] = useState({});
             const [isPriceRunning, setIsPriceRunning] = useState(false);
             const [isWalletRunning, setIsWalletRunning] = useState(false);
             const [walletAddress, setWalletAddress] = useState('0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045');
@@ -45,6 +56,7 @@
 
             useEffect(() => {
                 loadSummary();
+                loadErrorBreakdown();
             }, [timeRange, refreshKey]);
 
             const loadSummary = async () => {
@@ -55,6 +67,16 @@
                     setLastUpdate(new Date());
                 } catch (err) {
                     console.error('Error loading summary:', err);
+                }
+            };
+
+            const loadErrorBreakdown = async () => {
+                try {
+                    const res = await fetch(`/api/error-breakdown?range=${timeRange}`);
+                    const data = await res.json();
+                    setErrorBreakdown(data);
+                } catch (err) {
+                    console.error('Error loading error breakdown:', err);
                 }
             };
 
@@ -93,17 +115,20 @@
             return (
                 <div className="min-h-screen p-6">
                     <div className="mb-6">
-                        <h1 className="text-3xl font-bold text-white mb-4">
+                        <h1 className="text-3xl font-bold text-white mb-2">
                             API Benchmark Dashboard
                         </h1>
+                        <p className="text-gray-400 text-sm">
+                            Comprehensive performance, accuracy, and reliability testing for crypto APIs
+                        </p>
 
                         {/* Test Controls */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 my-6">
                             {/* Price Test */}
                             <div className="card rounded-lg p-4">
                                 <h3 className="text-white font-semibold mb-2">Test 1: Token Price Fetching</h3>
                                 <p className="text-sm text-gray-400 mb-3">
-                                    Tests USDT & ETH price APIs (10 requests each)
+                                    Tests USDT & ETH price APIs (10 requests each) + accuracy validation
                                 </p>
                                 <button
                                     onClick={runPriceBenchmark}
@@ -169,57 +194,87 @@
 
                     {/* What's Being Tested */}
                     <div className="card rounded-lg p-4 mb-6">
-                        <h3 className="font-semibold text-white mb-3">📊 Tests Breakdown</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <strong className="text-blue-400">Test 1: Token Price</strong>
-                                <ul className="ml-4 mt-1 space-y-1 text-gray-300">
-                                    <li>• <strong>Alchemy:</strong> GET /prices/v1/tokens/by-symbol</li>
-                                    <li>• <strong>Mobula:</strong> GET /api/2/token/price?address=...</li>
-                                    <li>• <strong>Codex:</strong> GraphQL getTokenPrices</li>
-                                    <li>• Tests USDT & ETH (10 calls each = 20 total per provider)</li>
-                                </ul>
+                        <h3 className="font-semibold text-white mb-3">📊 What We're Measuring</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                            <div className="p-3 bg-gray-800 rounded">
+                                <div className="text-blue-400 font-semibold mb-1">Performance</div>
+                                <div className="text-gray-300">Latency (Avg, P50, P95)</div>
                             </div>
-                            <div>
-                                <strong className="text-green-400">Test 2: Wallet Balance</strong>
-                                <ul className="ml-4 mt-1 space-y-1 text-gray-300">
-                                    <li>• <strong>Alchemy:</strong> alchemy_getTokenBalances</li>
-                                    <li>• <strong>Mobula:</strong> GET /wallet/portfolio</li>
-                                    <li>• <strong>Codex:</strong> GraphQL balances query</li>
-                                    <li>• 5 calls per provider</li>
-                                </ul>
+                            <div className="p-3 bg-gray-800 rounded">
+                                <div className="text-green-400 font-semibold mb-1">Reliability</div>
+                                <div className="text-gray-300">Success Rate & Uptime</div>
+                            </div>
+                            <div className="p-3 bg-gray-800 rounded">
+                                <div className="text-yellow-400 font-semibold mb-1">Accuracy</div>
+                                <div className="text-gray-300">Price Validation & Variance</div>
+                            </div>
+                            <div className="p-3 bg-gray-800 rounded">
+                                <div className="text-purple-400 font-semibold mb-1">Error Quality</div>
+                                <div className="text-gray-300">Error Types & Messages</div>
                             </div>
                         </div>
                     </div>
 
                     <SummaryTable data={summaryData} />
+                    
+                    {/* Error Breakdown */}
+                    <ErrorBreakdownCard data={errorBreakdown} />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                        <GraphCard 
-                            title="Failed Requests" 
-                            metric="failed-requests" 
-                            timeRange={timeRange} 
-                            refresh={refreshKey}
-                        />
+                    {/* Performance Graphs */}
+                    <h2 className="text-xl font-bold text-white mt-8 mb-4">📈 Performance Metrics</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <GraphCard 
                             title="Average Latency (ms)" 
                             metric="avg-latency" 
-                            timeRange={timeRange}
+                            timeRange={timeRange} 
                             refresh={refreshKey}
+                            description="Lower is better - measures typical response time"
                         />
                         <GraphCard 
                             title="P95 Latency (ms)" 
                             metric="p95-latency" 
                             timeRange={timeRange}
                             refresh={refreshKey}
+                            description="95% of requests complete within this time"
                         />
+                        <GraphCard 
+                            title="Throughput (requests per 5min)" 
+                            metric="throughput" 
+                            timeRange={timeRange}
+                            refresh={refreshKey}
+                            description="Number of requests processed over time"
+                        />
+                        <GraphCard 
+                            title="Failed Requests" 
+                            metric="failed-requests" 
+                            timeRange={timeRange} 
+                            refresh={refreshKey}
+                            description="Lower is better - tracks request failures"
+                        />
+                    </div>
+
+                    {/* Reliability & Accuracy Graphs */}
+                    <h2 className="text-xl font-bold text-white mt-8 mb-4">✅ Reliability & Accuracy</h2>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <GraphCard 
                             title="Success Rate (%)" 
                             metric="success-rate" 
                             timeRange={timeRange}
                             refresh={refreshKey}
+                            description="Percentage of successful requests - higher is better"
+                        />
+                        <GraphCard 
+                            title="Accuracy Rate (%)" 
+                            metric="accuracy-rate" 
+                            timeRange={timeRange}
+                            refresh={refreshKey}
+                            description="Percentage of accurate price responses (USDT ~$1, ETH sanity bounds)"
                         />
                     </div>
+
+                    {/* Price Comparison */}
+                    <h2 className="text-xl font-bold text-white mt-8 mb-4">💰 Price Accuracy Analysis</h2>
+                    <AccuracyComparisonCard timeRange={timeRange} refresh={refreshKey} />
                 </div>
             );
         }
@@ -239,6 +294,12 @@
                 return 'text-red-400';
             };
 
+            const getAccuracyBadge = (val) => {
+                if (val >= 95) return 'badge-green';
+                if (val >= 80) return 'badge-yellow';
+                return 'badge-red';
+            };
+
             return (
                 <div className="card rounded-lg overflow-hidden mb-6">
                     <table className="w-full">
@@ -251,6 +312,8 @@
                                 <th className="px-4 py-3 text-right text-gray-300">Requests</th>
                                 <th className="px-4 py-3 text-right text-gray-300">Failed</th>
                                 <th className="px-4 py-3 text-right text-gray-300">Success %</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Accuracy %</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Avg Size</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -283,6 +346,14 @@
                                     <td className="px-4 py-3 text-right font-mono text-green-400">
                                         {row.success_rate.toFixed(1)}%
                                     </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <span className={`metric-badge ${getAccuracyBadge(row.accuracy_rate)}`}>
+                                            {row.accuracy_rate.toFixed(1)}%
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-right font-mono text-gray-400 text-sm">
+                                        {(row.avg_response_size / 1024).toFixed(1)} KB
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -291,7 +362,199 @@
             );
         }
 
-        function GraphCard({ title, metric, timeRange, refresh }) {
+        function ErrorBreakdownCard({ data }) {
+            if (!data || Object.keys(data).length === 0) {
+                return null;
+            }
+
+            const errorTypes = {
+                success: { label: 'Success', color: '#10b981' },
+                rate_limit: { label: 'Rate Limit', color: '#eab308' },
+                auth_error: { label: 'Auth Error', color: '#ef4444' },
+                server_error: { label: 'Server Error', color: '#f97316' },
+                network_error: { label: 'Network Error', color: '#8b5cf6' },
+                not_found: { label: 'Not Found', color: '#6b7280' },
+                unknown_error: { label: 'Unknown', color: '#dc2626' }
+            };
+
+            return (
+                <div className="card rounded-lg p-4 mb-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">🔍 Error Type Breakdown</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {Object.keys(data).map(provider => (
+                            <div key={provider} className="bg-gray-800 rounded p-4">
+                                <h4 className="font-semibold capitalize mb-3" style={{ color: COLORS[provider] }}>
+                                    {provider}
+                                </h4>
+                                <div className="space-y-2">
+                                    {Object.entries(data[provider]).map(([errorType, count]) => (
+                                        <div key={errorType} className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-300">{errorTypes[errorType]?.label || errorType}</span>
+                                            <span className="font-mono font-semibold" style={{ color: errorTypes[errorType]?.color }}>
+                                                {count}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function AccuracyComparisonCard({ timeRange, refresh }) {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+            const [data, setData] = useState([]);
+            const [selectedToken, setSelectedToken] = useState('price_USDT');
+
+            useEffect(() => {
+                loadData();
+            }, [timeRange, refresh]);
+
+            useEffect(() => {
+                if (data.length > 0 && chartRef.current) {
+                    renderChart();
+                }
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [data, selectedToken]);
+
+            const loadData = async () => {
+                try {
+                    const res = await fetch(`/api/accuracy-comparison?range=${timeRange}`);
+                    const json = await res.json();
+                    setData(json);
+                } catch (err) {
+                    console.error('Error loading accuracy data:', err);
+                }
+            };
+
+            const renderChart = () => {
+                if (chartInstance.current) {
+                    chartInstance.current.destroy();
+                }
+
+                const ctx = chartRef.current.getContext('2d');
+                const filteredData = data.filter(d => d.token === selectedToken);
+
+                const datasets = ['alchemy', 'mobula', 'codex'].map(provider => ({
+                    label: provider.charAt(0).toUpperCase() + provider.slice(1),
+                    data: filteredData.map(d => ({ x: new Date(d.time), y: d[provider] })).filter(d => d.y !== undefined),
+                    borderColor: COLORS[provider],
+                    backgroundColor: COLORS[provider] + '40',
+                    borderWidth: 2,
+                    tension: 0.1,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }));
+
+                // Add variance line
+                datasets.push({
+                    label: 'Price Variance (%)',
+                    data: filteredData.map(d => ({ x: new Date(d.time), y: d.variance })).filter(d => d.y !== undefined),
+                    borderColor: '#ef4444',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.1,
+                    pointRadius: 2,
+                    yAxisID: 'y1'
+                });
+
+                chartInstance.current = new Chart(ctx, {
+                    type: 'line',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: { color: '#e2e8f0', boxWidth: 12 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: timeRange === '1h' ? 'minute' : 'hour',
+                                    displayFormats: {
+                                        minute: 'HH:mm',
+                                        hour: 'MMM d HH:mm'
+                                    }
+                                },
+                                ticks: { color: '#94a3b8', maxRotation: 45 },
+                                grid: { color: '#334155' }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                title: {
+                                    display: true,
+                                    text: 'Price (USD)',
+                                    color: '#94a3b8'
+                                },
+                                ticks: { color: '#94a3b8' },
+                                grid: { color: '#334155' }
+                            },
+                            y1: {
+                                position: 'right',
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Variance (%)',
+                                    color: '#ef4444'
+                                },
+                                ticks: { color: '#ef4444' },
+                                grid: { display: false }
+                            }
+                        }
+                    }
+                });
+            };
+
+            return (
+                <div className="card rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-white">Price Comparison & Variance</h3>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setSelectedToken('price_USDT')}
+                                className={`px-3 py-1 rounded text-sm ${selectedToken === 'price_USDT' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                            >
+                                USDT
+                            </button>
+                            <button
+                                onClick={() => setSelectedToken('price_ETH')}
+                                className={`px-3 py-1 rounded text-sm ${selectedToken === 'price_ETH' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                            >
+                                ETH
+                            </button>
+                        </div>
+                    </div>
+                    <div style={{ height: '300px' }}>
+                        {data.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-gray-500">
+                                No price data yet. Run price test to see accuracy comparison.
+                            </div>
+                        ) : (
+                            <canvas ref={chartRef}></canvas>
+                        )}
+                    </div>
+                    <div className="mt-4 text-sm text-gray-400">
+                        <p><strong className="text-blue-400">Solid lines:</strong> Actual prices from each API</p>
+                        <p><strong className="text-red-400">Dashed line:</strong> Price variance between APIs (lower is better)</p>
+                    </div>
+                </div>
+            );
+        }
+
+        function GraphCard({ title, metric, timeRange, refresh, description }) {
             const chartRef = useRef(null);
             const chartInstance = useRef(null);
             const [data, setData] = useState([]);
@@ -379,7 +642,8 @@
 
             return (
                 <div className="card rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+                    <h3 className="text-lg font-semibold text-white mb-1">{title}</h3>
+                    {description && <p className="text-xs text-gray-400 mb-3">{description}</p>}
                     <div style={{ height: '250px' }}>
                         {data.length === 0 ? (
                             <div className="h-full flex items-center justify-center text-gray-500">
