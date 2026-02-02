@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Benchmark Dashboard - Enhanced</title>
+    <title>API Benchmark Dashboard - CoinGecko Enhanced</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -41,7 +41,8 @@
         const COLORS = {
             alchemy: '#10b981',
             mobula: '#eab308', 
-            codex: '#3b82f6'
+            codex: '#3b82f6',
+            coingecko: '#8b5cf6'
         };
 
         function Dashboard() {
@@ -121,6 +122,9 @@
                         <p className="text-gray-400 text-sm">
                             Comprehensive performance, accuracy, and reliability testing for crypto APIs
                         </p>
+                        <p className="text-purple-400 text-sm mt-1">
+                            🎯 Using CoinGecko as reference for accuracy validation
+                        </p>
 
                         {/* Test Controls */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 my-6">
@@ -128,7 +132,7 @@
                             <div className="card rounded-lg p-4">
                                 <h3 className="text-white font-semibold mb-2">Test 1: Token Price Fetching</h3>
                                 <p className="text-sm text-gray-400 mb-3">
-                                    Tests USDT & ETH price APIs (10 requests each) + accuracy validation
+                                    Tests USDT & ETH price APIs (10 requests each) + CoinGecko reference validation
                                 </p>
                                 <button
                                     onClick={runPriceBenchmark}
@@ -206,7 +210,7 @@
                             </div>
                             <div className="p-3 bg-gray-800 rounded">
                                 <div className="text-yellow-400 font-semibold mb-1">Accuracy</div>
-                                <div className="text-gray-300">Price Validation & Variance</div>
+                                <div className="text-gray-300">CoinGecko Reference Validation</div>
                             </div>
                             <div className="p-3 bg-gray-800 rounded">
                                 <div className="text-purple-400 font-semibold mb-1">Error Quality</div>
@@ -268,12 +272,12 @@
                             metric="accuracy-rate" 
                             timeRange={timeRange}
                             refresh={refreshKey}
-                            description="Percentage of accurate price responses (USDT ~$1, ETH sanity bounds)"
+                            description="Percentage within ±5% of CoinGecko reference price"
                         />
                     </div>
 
                     {/* Price Comparison */}
-                    <h2 className="text-xl font-bold text-white mt-8 mb-4">💰 Price Accuracy Analysis</h2>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-4"> </h2>
                     <AccuracyComparisonCard timeRange={timeRange} refresh={refreshKey} />
                 </div>
             );
@@ -300,6 +304,12 @@
                 return 'badge-red';
             };
 
+            const getDeviationBadge = (val) => {
+                if (val < 1) return 'badge-green';
+                if (val < 3) return 'badge-yellow';
+                return 'badge-red';
+            };
+
             return (
                 <div className="card rounded-lg overflow-hidden mb-6">
                     <table className="w-full">
@@ -313,6 +323,7 @@
                                 <th className="px-4 py-3 text-right text-gray-300">Failed</th>
                                 <th className="px-4 py-3 text-right text-gray-300">Success %</th>
                                 <th className="px-4 py-3 text-right text-gray-300">Accuracy %</th>
+                                <th className="px-4 py-3 text-right text-gray-300">Avg Deviation</th>
                                 <th className="px-4 py-3 text-right text-gray-300">Avg Size</th>
                             </tr>
                         </thead>
@@ -351,6 +362,11 @@
                                             {row.accuracy_rate.toFixed(1)}%
                                         </span>
                                     </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <span className={`metric-badge ${getDeviationBadge(row.avg_deviation)}`}>
+                                            {row.avg_deviation.toFixed(2)}%
+                                        </span>
+                                    </td>
                                     <td className="px-4 py-3 text-right font-mono text-gray-400 text-sm">
                                         {(row.avg_response_size / 1024).toFixed(1)} KB
                                     </td>
@@ -380,7 +396,7 @@
             return (
                 <div className="card rounded-lg p-4 mb-6">
                     <h3 className="text-lg font-semibold text-white mb-4">🔍 Error Type Breakdown</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {Object.keys(data).map(provider => (
                             <div key={provider} className="bg-gray-800 rounded p-4">
                                 <h4 className="font-semibold capitalize mb-3" style={{ color: COLORS[provider] }}>
@@ -442,25 +458,26 @@
                 const ctx = chartRef.current.getContext('2d');
                 const filteredData = data.filter(d => d.token === selectedToken);
 
-                const datasets = ['alchemy', 'mobula', 'codex'].map(provider => ({
+                const datasets = ['alchemy', 'mobula', 'codex', 'coingecko'].map(provider => ({
                     label: provider.charAt(0).toUpperCase() + provider.slice(1),
                     data: filteredData.map(d => ({ x: new Date(d.time), y: d[provider] })).filter(d => d.y !== undefined),
                     borderColor: COLORS[provider],
                     backgroundColor: COLORS[provider] + '40',
-                    borderWidth: 2,
+                    borderWidth: provider === 'coingecko' ? 3 : 2,
+                    borderDash: provider === 'coingecko' ? [5, 5] : [],
                     tension: 0.1,
-                    pointRadius: 3,
-                    pointHoverRadius: 5
+                    pointRadius: provider === 'coingecko' ? 4 : 3,
+                    pointHoverRadius: 6
                 }));
 
                 // Add variance line
                 datasets.push({
-                    label: 'Price Variance (%)',
+                    label: 'Max Deviation from CoinGecko (%)',
                     data: filteredData.map(d => ({ x: new Date(d.time), y: d.variance })).filter(d => d.y !== undefined),
                     borderColor: '#ef4444',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
-                    borderDash: [5, 5],
+                    borderDash: [2, 2],
                     tension: 0.1,
                     pointRadius: 2,
                     yAxisID: 'y1'
@@ -507,7 +524,7 @@
                                 beginAtZero: true,
                                 title: {
                                     display: true,
-                                    text: 'Variance (%)',
+                                    text: 'Deviation (%)',
                                     color: '#ef4444'
                                 },
                                 ticks: { color: '#ef4444' },
@@ -521,7 +538,7 @@
             return (
                 <div className="card rounded-lg p-4">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-semibold text-white">Price Comparison & Variance</h3>
+                        <h3 className="text-lg font-semibold text-white">Price Comparison vs CoinGecko Reference</h3>
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setSelectedToken('price_USDT')}
@@ -547,8 +564,10 @@
                         )}
                     </div>
                     <div className="mt-4 text-sm text-gray-400">
-                        <p><strong className="text-blue-400">Solid lines:</strong> Actual prices from each API</p>
-                        <p><strong className="text-red-400">Dashed line:</strong> Price variance between APIs (lower is better)</p>
+                        <p><strong className="text-purple-400">CoinGecko (dashed):</strong> Reference price - ground truth for accuracy validation</p>
+                        <p><strong className="text-blue-400">Alchemy/Mobula/Codex (solid):</strong> Prices from each API being tested</p>
+                        <p><strong className="text-red-400">Red dotted line:</strong> Maximum deviation from CoinGecko (lower is better)</p>
+                        <p className="mt-2 text-xs text-gray-500">Accuracy threshold: ±5% deviation from CoinGecko reference</p>
                     </div>
                 </div>
             );
@@ -591,7 +610,7 @@
 
                 const ctx = chartRef.current.getContext('2d');
 
-                const datasets = ['alchemy', 'mobula', 'codex'].map(provider => ({
+                const datasets = ['alchemy', 'mobula', 'codex', 'coingecko'].map(provider => ({
                     label: provider.charAt(0).toUpperCase() + provider.slice(1),
                     data: data.map(d => ({ x: new Date(d.time), y: d[provider] })),
                     borderColor: COLORS[provider],

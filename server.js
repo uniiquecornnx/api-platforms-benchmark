@@ -1,4 +1,4 @@
-// server.js - Enhanced with accuracy tracking and error classification
+// server.js - Enhanced with CoinGecko as accuracy reference
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -24,15 +24,15 @@ const TOKENS = {
         symbol: 'USDT',
         address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
         blockchain: 'Ethereum',
-        expectedPrice: 1.0,
-        tolerance: 0.05 // ±5% for stablecoin
+        coingeckoId: 'ethereum', // asset platform for CoinGecko
+        contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7'
     },
     ETH: {
         symbol: 'ETH',
         address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
         blockchain: 'Ethereum',
-        minPrice: 1000,
-        maxPrice: 10000 // Sanity bounds
+        coingeckoId: 'ethereum',
+        contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
     }
 };
 
@@ -40,6 +40,43 @@ console.log('🔧 API Configuration:');
 console.log('Alchemy:', process.env.ALCHEMY_API_KEY ? '✓ Configured' : '✗ Missing');
 console.log('Mobula:', process.env.MOBULA_API_KEY ? '✓ Configured' : '✗ Missing');
 console.log('Codex:', process.env.CODEX_API_KEY ? '✓ Configured' : '✗ Missing');
+console.log('CoinGecko:', process.env.COINGECKO_API_KEY ? '✓ Configured' : '✗ Missing (will use public API)');
+
+// ====================================
+// COINGECKO REFERENCE PRICE FETCHER
+// ====================================
+async function getCoinGeckoReferencePrice(tokenSymbol) {
+    const token = TOKENS[tokenSymbol];
+    
+    try {
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // Add API key if available (for higher rate limits)
+        if (process.env.COINGECKO_API_KEY) {
+            headers['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY;
+        }
+        
+        const url = `https://api.coingecko.com/api/v3/simple/token_price/${token.coingeckoId}?contract_addresses=${token.contractAddress}&vs_currencies=usd`;
+        
+        const response = await fetch(url, { headers });
+        
+        if (!response.ok) {
+            console.error(`CoinGecko API error: ${response.status}`);
+            return null;
+        }
+        
+        const data = await response.json();
+        const price = data[token.contractAddress.toLowerCase()]?.usd;
+        
+        return price || null;
+        
+    } catch (error) {
+        console.error('Error fetching CoinGecko reference price:', error.message);
+        return null;
+    }
+}
 
 // ====================================
 // HELPER: Extract price from different API responses
@@ -51,14 +88,15 @@ function extractPrice(provider, responseData) {
         if (provider === 'alchemy') {
             price = responseData?.data?.[0]?.prices?.[0]?.value;
         } else if (provider === 'mobula') {
-            // Mobula uses priceUSD (capital USD)
             price = responseData?.data?.priceUSD;
         } else if (provider === 'codex') {
-            // Codex returns an array, get first element
             price = responseData?.data?.getTokenPrices?.[0]?.priceUsd;
+        } else if (provider === 'coingecko') {
+            // Extract from CoinGecko response
+            const contractAddr = Object.keys(responseData)[0];
+            price = responseData[contractAddr]?.usd;
         }
         
-        // Ensure it's a number
         if (price === null || price === undefined) {
             return null;
         }
@@ -89,30 +127,33 @@ function classifyError(errorMessage, statusCode) {
 }
 
 // ====================================
-// HELPER: Validate price accuracy
+// HELPER: Validate price accuracy against CoinGecko
 // ====================================
-function validatePriceAccuracy(tokenSymbol, priceValue) {
-    if (!priceValue || priceValue <= 0) return false;
-    
-    const token = TOKENS[tokenSymbol];
-    
-    if (tokenSymbol === 'USDT') {
-        // Stablecoin should be close to $1
-        const deviation = Math.abs(priceValue - token.expectedPrice);
-        return deviation <= token.tolerance;
-    } else if (tokenSymbol === 'ETH') {
-        // ETH should be within sanity bounds
-        return priceValue >= token.minPrice && priceValue <= token.maxPrice;
+function validatePriceAccuracy(priceValue, referencePrice, tolerance = 0.05) {
+    if (!priceValue || !referencePrice || priceValue <= 0 || referencePrice <= 0) {
+        return false;
     }
     
-    return true;
+    const deviation = Math.abs(priceValue - referencePrice) / referencePrice;
+    return deviation <= tolerance; // 5% tolerance by default
 }
 
 // ====================================
-// TEST 1: TOKEN PRICE FETCHING (Enhanced)
+// HELPER: Calculate price deviation percentage
+// ====================================
+function calculateDeviation(priceValue, referencePrice) {
+    if (!priceValue || !referencePrice || referencePrice === 0) {
+        return null;
+    }
+    
+    return ((priceValue - referencePrice) / referencePrice) * 100;
+}
+
+// ====================================
+// TEST 1: TOKEN PRICE FETCHING (Enhanced with CoinGecko)
 // ====================================
 
-async function testTokenPrice(provider, tokenSymbol) {
+async function testTokenPrice(provider, tokenSymbol, coinGeckoReference = null) {
     const token = TOKENS[tokenSymbol];
     const startTime = performance.now();
     let success = false;
@@ -161,6 +202,19 @@ async function testTokenPrice(provider, tokenSymbol) {
                     }`
                 })
             });
+        } else if (provider === 'coingecko') {
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (process.env.COINGECKO_API_KEY) {
+                headers['x-cg-demo-api-key'] = process.env.COINGECKO_API_KEY;
+            }
+            
+            response = await fetch(
+                `https://api.coingecko.com/api/v3/simple/token_price/${token.coingeckoId}?contract_addresses=${token.contractAddress}&vs_currencies=usd`,
+                { headers }
+            );
         }
 
         statusCode = response.status;
@@ -188,8 +242,15 @@ async function testTokenPrice(provider, tokenSymbol) {
     // Classify error type
     const errorType = classifyError(errorMessage, statusCode);
     
-    // Validate accuracy
-    const isAccurate = priceValue ? validatePriceAccuracy(tokenSymbol, priceValue) : false;
+    // Validate accuracy against CoinGecko reference
+    const isAccurate = (priceValue && coinGeckoReference) 
+        ? validatePriceAccuracy(priceValue, coinGeckoReference) 
+        : null;
+    
+    // Calculate deviation from reference
+    const deviation = (priceValue && coinGeckoReference)
+        ? calculateDeviation(priceValue, coinGeckoReference)
+        : null;
 
     return {
         latency,
@@ -199,7 +260,9 @@ async function testTokenPrice(provider, tokenSymbol) {
         priceValue,
         responseSize,
         errorType,
-        isAccurate
+        isAccurate,
+        referencePrice: coinGeckoReference,
+        deviation
     };
 }
 
@@ -306,29 +369,42 @@ async function testWalletBalance(provider, walletAddress) {
 
 // Run price benchmark
 app.post('/api/run-price-benchmark', async (req, res) => {
-    console.log('\n🔄 Starting PRICE benchmark...');
+    console.log('\n🔄 Starting PRICE benchmark with CoinGecko reference...');
     console.log('Testing: Token price fetching for USDT and ETH');
-    console.log('Providers: Alchemy, Mobula, Codex');
+    console.log('Providers: Alchemy, Mobula, Codex, CoinGecko (reference)');
     console.log('Iterations: 10 per token per provider\n');
     
-    const providers = ['alchemy', 'mobula', 'codex'];
+    const providers = ['alchemy', 'mobula', 'codex', 'coingecko'];
     const tokens = ['USDT', 'ETH'];
     const iterations = 10;
     
     const testStartTime = Date.now();
     
-    for (const provider of providers) {
-        console.log(`Testing ${provider}...`);
+    for (const token of tokens) {
+        console.log(`\n📊 Testing ${token}...`);
         
-        for (const token of tokens) {
-            for (let i = 0; i < iterations; i++) {
-                const result = await testTokenPrice(provider, token);
+        for (let i = 0; i < iterations; i++) {
+            // First, get CoinGecko reference price
+            console.log(`  Iteration ${i+1}/${iterations}`);
+            const coinGeckoRef = await getCoinGeckoReferencePrice(token);
+            
+            if (coinGeckoRef) {
+                console.log(`  ✓ CoinGecko reference: $${coinGeckoRef.toFixed(4)}`);
+            } else {
+                console.log(`  ⚠ CoinGecko reference unavailable`);
+            }
+            
+            // Test each provider
+            for (const provider of providers) {
+                const result = await testTokenPrice(provider, token, coinGeckoRef);
                 
                 const priceStr = result.priceValue !== null ? `$${result.priceValue.toFixed(4)}` : 'N/A';
-                const accurateStr = result.isAccurate ? '✓' : '✗';
-                console.log(`  ${provider} ${token} #${i+1}: ${result.latency.toFixed(0)}ms - ${result.success ? '✓' : '✗ ' + result.errorMessage} - Price: ${priceStr} - Accurate: ${accurateStr}`);
+                const accurateStr = result.isAccurate === true ? '✓' : result.isAccurate === false ? '✗' : '-';
+                const deviationStr = result.deviation !== null ? `${result.deviation > 0 ? '+' : ''}${result.deviation.toFixed(2)}%` : 'N/A';
                 
-                // Store in Supabase with ALL new fields
+                console.log(`    ${provider.padEnd(10)} ${result.latency.toFixed(0).padStart(4)}ms - ${result.success ? '✓' : '✗'} - ${priceStr} - Accurate: ${accurateStr} - Deviation: ${deviationStr}`);
+                
+                // Store in Supabase with ALL fields including reference price and deviation
                 await supabase.from('benchmark_results').insert({
                     provider,
                     test_type: `price_${token}`,
@@ -338,14 +414,16 @@ app.post('/api/run-price-benchmark', async (req, res) => {
                     price_value: result.priceValue,
                     response_size: result.responseSize,
                     error_type: result.errorType,
-                    is_accurate: result.isAccurate
+                    is_accurate: result.isAccurate,
+                    reference_price: result.referencePrice,
+                    deviation: result.deviation
                 });
 
                 await new Promise(r => setTimeout(r, 100));
             }
         }
         
-        console.log(`✓ ${provider} complete\n`);
+        console.log(`✓ ${token} complete\n`);
     }
     
     const testEndTime = Date.now();
@@ -451,7 +529,7 @@ app.get('/api/summary', async (req, res) => {
     }
 
     const summary = {};
-    const providers = ['alchemy', 'mobula', 'codex'];
+    const providers = ['alchemy', 'mobula', 'codex', 'coingecko'];
 
     providers.forEach(provider => {
         const providerData = data.filter(d => d.provider === provider);
@@ -466,7 +544,8 @@ app.get('/api/summary', async (req, res) => {
                 p50_latency: 0,
                 p95_latency: 0,
                 accuracy_rate: 0,
-                avg_response_size: 0
+                avg_response_size: 0,
+                avg_deviation: 0
             };
             return;
         }
@@ -476,6 +555,12 @@ app.get('/api/summary', async (req, res) => {
         const accurate = providerData.filter(d => d.is_accurate === true).length;
         const totalWithAccuracy = providerData.filter(d => d.is_accurate !== null).length;
         const avgResponseSize = providerData.reduce((sum, d) => sum + (d.response_size || 0), 0) / providerData.length;
+        
+        // Calculate average deviation
+        const deviations = providerData.filter(d => d.deviation !== null).map(d => Math.abs(d.deviation));
+        const avgDeviation = deviations.length > 0 
+            ? deviations.reduce((a, b) => a + b, 0) / deviations.length 
+            : 0;
 
         summary[provider] = {
             provider,
@@ -486,14 +571,15 @@ app.get('/api/summary', async (req, res) => {
             p50_latency: latencies[Math.floor(latencies.length * 0.5)],
             p95_latency: latencies[Math.floor(latencies.length * 0.95)],
             accuracy_rate: totalWithAccuracy > 0 ? (accurate / totalWithAccuracy) * 100 : 0,
-            avg_response_size: avgResponseSize
+            avg_response_size: avgResponseSize,
+            avg_deviation: avgDeviation
         };
     });
 
     res.json(Object.values(summary));
 });
 
-// NEW: Get accuracy comparison data
+// Get accuracy comparison data (now includes CoinGecko as reference)
 app.get('/api/accuracy-comparison', async (req, res) => {
     const timeRange = req.query.range || '24h';
     let hours = 24;
@@ -522,30 +608,52 @@ app.get('/api/accuracy-comparison', async (req, res) => {
         const time = new Date(row.timestamp);
         time.setMinutes(Math.floor(time.getMinutes() / 5) * 5, 0, 0);
         const bucket = time.toISOString();
-        const token = row.test_type; // price_USDT or price_ETH
+        const token = row.test_type;
         
         const key = `${bucket}_${token}`;
         if (!grouped[key]) {
-            grouped[key] = { time: bucket, token, alchemy: [], mobula: [], codex: [] };
+            grouped[key] = { 
+                time: bucket, 
+                token, 
+                alchemy: [], 
+                mobula: [], 
+                codex: [], 
+                coingecko: [],
+                reference: [] 
+            };
         }
         
         grouped[key][row.provider].push(row.price_value);
+        
+        // Track reference prices from all providers for variance calculation
+        if (row.reference_price) {
+            grouped[key].reference.push(row.reference_price);
+        }
     });
 
     const result = Object.values(grouped).map(bucket => {
         const prices = {};
-        ['alchemy', 'mobula', 'codex'].forEach(provider => {
+        ['alchemy', 'mobula', 'codex', 'coingecko'].forEach(provider => {
             if (bucket[provider].length > 0) {
                 prices[provider] = bucket[provider].reduce((a, b) => a + b, 0) / bucket[provider].length;
             }
         });
         
-        // Calculate variance
-        const priceValues = Object.values(prices);
-        if (priceValues.length >= 2) {
-            const avg = priceValues.reduce((a, b) => a + b, 0) / priceValues.length;
-            const maxDeviation = Math.max(...priceValues.map(p => Math.abs(p - avg) / avg * 100));
-            prices.variance = maxDeviation;
+        // Calculate variance against CoinGecko reference
+        const referencePrice = bucket.reference.length > 0 
+            ? bucket.reference.reduce((a, b) => a + b, 0) / bucket.reference.length 
+            : null;
+        
+        if (referencePrice) {
+            const deviations = Object.values(prices)
+                .filter(p => p !== undefined)
+                .map(p => Math.abs((p - referencePrice) / referencePrice * 100));
+            
+            prices.variance = deviations.length > 0 
+                ? Math.max(...deviations) 
+                : 0;
+            
+            prices.reference = referencePrice;
         } else {
             prices.variance = 0;
         }
@@ -560,7 +668,7 @@ app.get('/api/accuracy-comparison', async (req, res) => {
     res.json(result);
 });
 
-// NEW: Get error breakdown
+// Get error breakdown
 app.get('/api/error-breakdown', async (req, res) => {
     const timeRange = req.query.range || '24h';
     let hours = 24;
@@ -581,7 +689,7 @@ app.get('/api/error-breakdown', async (req, res) => {
     }
 
     const breakdown = {};
-    const providers = ['alchemy', 'mobula', 'codex'];
+    const providers = ['alchemy', 'mobula', 'codex', 'coingecko'];
 
     providers.forEach(provider => {
         const providerData = data.filter(d => d.provider === provider);
@@ -629,7 +737,7 @@ app.get('/api/graph/:metric', async (req, res) => {
         const bucket = time.toISOString();
         
         if (!grouped[bucket]) {
-            grouped[bucket] = { alchemy: [], mobula: [], codex: [] };
+            grouped[bucket] = { alchemy: [], mobula: [], codex: [], coingecko: [] };
         }
         
         grouped[bucket][row.provider].push(row);
@@ -638,7 +746,7 @@ app.get('/api/graph/:metric', async (req, res) => {
     const result = Object.keys(grouped).sort().map(time => {
         const bucket = { time };
         
-        ['alchemy', 'mobula', 'codex'].forEach(provider => {
+        ['alchemy', 'mobula', 'codex', 'coingecko'].forEach(provider => {
             const providerData = grouped[time][provider];
             
             if (providerData.length === 0) {
@@ -662,7 +770,7 @@ app.get('/api/graph/:metric', async (req, res) => {
                 const totalWithAccuracy = providerData.filter(d => d.is_accurate !== null).length;
                 bucket[provider] = totalWithAccuracy > 0 ? (accurateCount / totalWithAccuracy) * 100 : null;
             } else if (metric === 'throughput') {
-                bucket[provider] = providerData.length; // requests per 5-min bucket
+                bucket[provider] = providerData.length;
             }
         });
         
@@ -686,7 +794,7 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log('═══════════════════════════════════════════════');
-    console.log('   🚀 API Benchmark Server (Enhanced)');
+    console.log('   🚀 API Benchmark Server (CoinGecko Enhanced)');
     console.log('═══════════════════════════════════════════════');
     console.log(`   Dashboard: http://localhost:${PORT}`);
     console.log(`   Health: http://localhost:${PORT}/api/health`);
