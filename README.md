@@ -1,210 +1,510 @@
-# 🚀 API Platforms Benchmark
+# 🚀 Crypto API Benchmark Dashboard
 
-A real-time performance benchmarking tool for comparing blockchain data API providers. Track latency, success rates, and reliability metrics across multiple API platforms.
+A comprehensive, real-time benchmarking platform for evaluating crypto data API providers across **performance**, **accuracy**, and **reliability** metrics.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen)](https://api-platforms-benchmark.onrender.com/)
 
-## 📊 Overview
+---
 
-This project benchmarks three major blockchain data API providers:
-- **Alchemy** - Blockchain development platform
-- **Mobula** - Multi-chain crypto data aggregator  
-- **Codex** - DeFi data and analytics platform
+## 📋 Table of Contents
 
-### What It Tests
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Why This Exists](#why-this-exists)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Metrics Explained](#metrics-explained)
+- [API Endpoints](#api-endpoints)
+- [Configuration](#configuration)
+- [Screenshots](#screenshots)
+- [Contributing](#contributing)
 
-1. **Token Price Fetching** - Retrieves real-time prices for USDT and ETH
-2. **Wallet Balance Queries** - Fetches token holdings for Ethereum wallets
+---
 
-### Metrics Tracked
+## 🎯 Overview
 
-- ⏱️ **Average Latency** - Mean response time
-- 📈 **P50 Latency** - Median response time
-- 📊 **P95 Latency** - 95th percentile response time
-- ✅ **Success Rate** - Percentage of successful requests
-- ❌ **Failed Requests** - Count of failed API calls
+This tool provides **data-driven insights** for choosing between crypto API providers (Alchemy, Mobula, Codex) by continuously testing and validating their:
 
-## 🎯 Features
+- ⚡ **Performance** - Latency (avg, P50, P95)
+- ✅ **Reliability** - Success rates and error patterns
+- 🎯 **Accuracy** - Price validation against CoinGecko reference
+- 📊 **Consistency** - Cross-provider variance tracking
 
-- **Real-time Benchmarking** - Run tests on-demand for each API provider
-- **Historical Data** - View performance trends over 1h, 6h, 24h, or 7 days
-- **Visual Analytics** - Interactive charts for latency and success metrics
-- **Persistent Storage** - All results saved to Supabase for analysis
-- **Live Dashboard** - Clean web UI to monitor and trigger tests
+**Made for:**
+- Web3 engineering teams evaluating API providers
+- CTOs monitoring current provider SLAs
+- Product managers diagnosing performance issues
+- DevOps teams planning infrastructure migrations
 
-## 🛠️ Tech Stack
+---
 
-- **Backend**: Node.js + Express.js
+## ✨ Key Features
+
+### 🔬 **Multi-Dimensional Testing**
+
+| Test Type | What It Measures | Providers Tested |
+|-----------|------------------|------------------|
+| **Token Price** | USDT & ETH price fetching accuracy | Alchemy, Mobula, Codex, CoinGecko |
+| **Wallet Balance** | Token holdings retrieval speed | Alchemy, Mobula, Codex |
+
+### 📈 **Advanced Metrics**
+
+- **Latency Distribution**: Average, P50 (median), P95 (tail latency)
+- **Accuracy Validation**: ±5% tolerance against CoinGecko ground truth
+- **Error Classification**: Rate limits, auth errors, network issues, server errors
+- **Deviation Tracking**: Percentage drift from reference prices
+- **Variance Analysis**: Maximum disagreement between providers
+
+
+### 🔄 **Continuous Monitoring**
+
+- Historical trend analysis
+- Automated benchmark execution
+- RESTful API for external integrations
+
+---
+
+## 🤔 Why This Exists
+
+### The Problem
+
+Most API provider comparisons rely on:
+- ❌ Marketing claims ("99.9% uptime!")
+- ❌ Synthetic benchmarks (not real-world conditions)
+- ❌ Speed-only metrics (ignoring data quality)
+
+### Our Solution
+
+A **scientific approach** to API evaluation:
+
+1. **Ground Truth Validation**: Use CoinGecko as reference for accuracy
+2. **Real-World Testing**: Actual API calls with production-like conditions
+3. **Holistic Metrics**: Speed + accuracy + reliability combined
+4. **Transparent Data**: All raw results stored for analysis
+
+### Real-World Impact
+
+**Example Use Case:**
+```
+A DeFi protocol processes $10M daily volume.
+Provider A: 80ms latency, 5% price deviation
+Provider B: 200ms latency, 0.2% deviation
+
+Choice: Provider B
+Reason: 1% price error = $100K loss > latency cost
+
+Our tool prevents this $100K mistake.
+```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐
+│   React UI      │  ← User triggers tests
+│  (Dashboard)    │
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│  Express API    │  ← Orchestrates benchmarks
+│   (Node.js)     │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+┌───▼──┐  ┌──▼────┐
+│ APIs │  │ Supa- │  ← Stores results
+│      │  │ base  │
+└──────┘  └───────┘
+  ↑
+  │ Validates against
+  │
+┌──▼──────────┐
+│  CoinGecko  │  ← Ground truth
+│  Reference  │
+└─────────────┘
+```
+
+### Tech Stack
+
+- **Frontend**: React 18, Chart.js, Tailwind CSS
+- **Backend**: Node.js, Express
 - **Database**: Supabase (PostgreSQL)
-- **Frontend**: Vanilla JavaScript + HTML/CSS
-- **Deployment**: Render
 - **APIs Tested**: Alchemy, Mobula, Codex
+- **Reference**: CoinGecko
 
-## 📦 Installation
+---
+
+## 🛠️ Installation
 
 ### Prerequisites
 
-- Node.js 14+ 
-- npm or yarn
+- Node.js 18+
 - Supabase account
-- API keys for Alchemy, Mobula, and Codex
+- API keys for providers you want to test
 
-### Setup
+### 1. Clone Repository
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/uniiquecornnx/api-platforms-benchmark.git
-   cd api-platforms-benchmark
-   ```
+```bash
+git clone https://github.com/yourusername/api-benchmark-dashboard.git
+cd api-benchmark-dashboard
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+### 2. Install Dependencies
 
-3. **Configure environment variables**
-   
-   Create a `.env` file in the root directory:
-   ```env
-   PORT=3000
-   
-   # Supabase
-   SUPABASE_URL=your_supabase_url
-   SUPABASE_KEY=your_supabase_anon_key
-   
-   # API Keys
-   ALCHEMY_API_KEY=your_alchemy_api_key
-   MOBULA_API_KEY=your_mobula_api_key
-   CODEX_API_KEY=your_codex_api_key
-   ```
+```bash
+npm install
+```
 
-4. **Set up Supabase database**
-   
-   Create a `benchmark_results` table with this schema:
-   ```sql
-   CREATE TABLE benchmark_results (
-     id BIGSERIAL PRIMARY KEY,
-     provider TEXT NOT NULL,
-     test_type TEXT NOT NULL,
-     latency NUMERIC NOT NULL,
-     success BOOLEAN NOT NULL,
-     error_message TEXT,
-     timestamp TIMESTAMPTZ DEFAULT NOW()
-   );
-   
-   -- Create indexes for better query performance
-   CREATE INDEX idx_provider ON benchmark_results(provider);
-   CREATE INDEX idx_timestamp ON benchmark_results(timestamp);
-   CREATE INDEX idx_test_type ON benchmark_results(test_type);
-   ```
+### 3. Configure Environment
 
-5. **Start the server**
-   ```bash
-   npm start
-   ```
+Create `.env` file:
 
-6. **Access the dashboard**
-   
-   Open your browser to `http://localhost:3000`
+```env
+# Server
+PORT=3000
 
-## 🎮 Usage
+# Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+
+# API Keys (at least one required)
+ALCHEMY_API_KEY=your-alchemy-key
+MOBULA_API_KEY=your-mobula-key
+CODEX_API_KEY=your-codex-key
+COINGECKO_API_KEY=your-coingecko-key  # Optional (free tier works)
+```
+
+
+### 4. Start Server
+
+```bash
+npm start
+```
+
+Dashboard available at: `http://localhost:3000`
+
+---
+
+## 📊 Usage
 
 ### Running Benchmarks
 
-#### Token Price Benchmark
-Tests token price fetching for USDT and ETH across all providers (10 iterations each):
+#### 1. **Price Test** (Recommended First)
 
-```bash
-POST /api/run-price-benchmark
+- Click **"Run Price Test"** button
+- Tests USDT & ETH prices (10 requests each)
+- Fetches CoinGecko reference for validation
+- Duration: ~1-2 minutes
+
+**Output:**
+- Latency metrics per provider
+- Accuracy rates against reference
+- Deviation percentages
+- Error counts
+
+#### 2. **Wallet Balance Test**
+
+- Enter Ethereum wallet address
+- Click **"Run Wallet Test"**
+- Tests token holdings retrieval (5 requests per provider)
+- Duration: ~30-45 seconds
+
+### Viewing Results
+
+#### Summary Table
+
+Shows aggregated metrics:
+- **Avg Latency**: Mean response time
+- **P50/P95**: Percentile latencies
+- **Success %**: Reliability score
+- **Accuracy %**: Percentage within ±5% of reference
+- **Avg Deviation**: Typical price drift
+
+#### Performance Graphs
+
+- **Average Latency**: Trend over time
+- **P95 Latency**: Tail latency (worst 5% of requests)
+- **Throughput**: Requests processed per 5-min bucket
+- **Failed Requests**: Error count timeline
+
+#### Accuracy Graph
+
+- Shows all provider prices overlaid
+- CoinGecko reference (dashed line)
+- Max deviation from reference (red dotted)
+- Token selector (USDT/ETH)
+
+
+## 📐 Metrics Explained
+
+### Performance Metrics
+
+#### **Average Latency**
+```
+Formula: Σ(latencies) / n
+Unit: milliseconds (ms)
+```
+Mean response time across all requests.
+
+**Interpretation:**
+- < 150ms: Excellent
+- 150-300ms: Good
+- \> 300ms: Needs attention
+
+#### **P50 Latency (Median)**
+```
+Formula: latency at position floor(n × 0.5)
+Unit: milliseconds (ms)
+```
+Middle value when latencies are sorted. 50% of requests complete faster.
+
+**Why P50?** Less affected by outliers than average.
+
+#### **P95 Latency (95th Percentile)**
+```
+Formula: latency at position floor(n × 0.95)
+Unit: milliseconds (ms)
+```
+95% of requests complete within this time.
+
+**Why P95?** Represents "worst-case" user experience while ignoring extreme outliers. Industry standard for SLAs.
+
+---
+
+### Reliability Metrics
+
+#### **Success Rate**
+```
+Formula: (Successful Requests / Total Requests) × 100
+Unit: percentage (%)
+```
+Reliability indicator.
+
+**Interpretation:**
+- \> 99%: Production-ready
+- 95-99%: Acceptable with monitoring
+- < 95%: Investigate issues
+
+---
+
+### Accuracy Metrics
+
+#### **Accuracy Rate**
+```
+Formula: (Accurate Prices / Total Comparable Prices) × 100
+Threshold: ±5% from CoinGecko reference
+Unit: percentage (%)
+```
+Percentage of prices within acceptable deviation.
+
+**Why 5%?** Industry standard for financial APIs, balances strictness with timing variance.
+
+#### **Price Deviation**
+```
+Formula: ((Observed - Reference) / Reference) × 100
+Unit: percentage (%)
+```
+How far provider's price differs from CoinGecko.
+
+**Example:**
+- CoinGecko: $1.00
+- Alchemy: $1.05
+- Deviation: +5%
+
+**Interpretation:**
+- < 1%: Excellent accuracy
+- 1-3%: Acceptable
+- \> 5%: Failed accuracy check
+
+#### **Average Absolute Deviation**
+```
+Formula: Σ|deviations| / n
+Unit: percentage (%)
+```
+Typical magnitude of price error (direction ignored).
+
+---
+
+### Variance Metrics
+
+#### **Cross-Provider Variance**
+```
+Formula: max(|deviation₁|, |deviation₂|, ..., |deviationₙ|)
+Unit: percentage (%)
+```
+Maximum disagreement between providers.
+
+**Example:**
+```
+CoinGecko: $1.00
+Alchemy:   $1.00 → 0% deviation
+Mobula:    $1.03 → 3% deviation
+Codex:     $0.98 → 2% deviation
+
+Variance = max(0%, 3%, 2%) = 3%
 ```
 
-Or click **"Run Price Benchmark"** in the dashboard.
+**Interpretation:**
+- < 1%: High data confidence
+- 1-3%: Normal variance
+- \> 3%: Data quality concern
 
-#### Wallet Balance Benchmark  
-Tests wallet token balance queries (5 iterations per provider):
+---
 
-```bash
-POST /api/run-wallet-benchmark
-Content-Type: application/json
+### Time Aggregation
 
+#### **5-Minute Buckets**
+```
+Formula: floor(minutes / 5) × 5
+Example: 14:23:47 → 14:20:00
+```
+Groups data into 5-minute windows for visualization.
+
+**Trade-off:** Reduces noise but loses granularity.
+
+---
+
+## 🔌 API Endpoints
+
+### POST `/api/run-price-benchmark`
+
+Executes token price test.
+
+**Response:**
+```json
 {
-  "walletAddress": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+  "success": true,
+  "message": "Price benchmark complete",
+  "totalRequests": 80,
+  "duration": 45.2,
+  "throughput": 1.77
 }
 ```
 
-Or use the **"Run Wallet Benchmark"** form in the dashboard.
+---
 
-### API Endpoints
+### POST `/api/run-wallet-benchmark`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/run-price-benchmark` | POST | Execute token price benchmark |
-| `/api/run-wallet-benchmark` | POST | Execute wallet balance benchmark |
-| `/api/summary?range=24h` | GET | Get aggregated metrics summary |
-| `/api/graph/:metric?range=24h` | GET | Get time-series data for charts |
-| `/api/health` | GET | Health check endpoint |
+Executes wallet balance test.
 
-### Query Parameters
+**Request:**
+```json
+{
+  "walletAddress": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+}
+```
 
-- `range`: Time range for data (`1h`, `6h`, `24h`, `7d`)
-- `metric`: Graph metric type (`avg-latency`, `p95-latency`, `success-rate`, `failed-requests`)
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Wallet balance benchmark complete",
+  "totalRequests": 15,
+  "duration": 30.5,
+  "throughput": 0.49
+}
+```
 
-## 📈 How It Works
+---
 
-### Benchmark Process
+### GET `/api/summary?range={timeRange}`
 
-1. **Sequential Testing**: Each provider is tested in sequence to avoid rate limiting
-2. **Multiple Iterations**: 10 iterations for price tests, 5 for wallet queries
-3. **Cooldown Periods**: 100-200ms delays between requests
-4. **Data Storage**: All results immediately saved to Supabase
-5. **Real-time Aggregation**: Dashboard updates with latest metrics
+Returns aggregated metrics.
 
-### API Integration Details
+**Parameters:**
+- `range`: `1h`, `6h`, `24h`, or `7d`
 
-**Alchemy**
-- Endpoint: `https://api.g.alchemy.com/prices/v1/tokens/by-symbol`
-- Method: REST API with Bearer token authentication
+**Response:**
+```json
+[
+  {
+    "provider": "alchemy",
+    "requests": 100,
+    "failed": 2,
+    "success_rate": 98.0,
+    "avg_latency": 145.23,
+    "p50_latency": 132.0,
+    "p95_latency": 287.5,
+    "accuracy_rate": 99.2,
+    "avg_response_size": 2048,
+    "avg_deviation": 0.42
+  }
+]
+```
 
-**Mobula**  
-- Endpoint: `https://api.mobula.io/api/2/token/price`
-- Method: REST API with API key header
+---
 
-**Codex**
-- Endpoint: `https://graph.codex.io/graphql`
-- Method: GraphQL with API key header
+### GET `/api/accuracy-comparison?range={timeRange}`
+
+Returns price comparison data.
+
+**Response:**
+```json
+[
+  {
+    "time": "2025-02-03T14:20:00Z",
+    "token": "price_USDT",
+    "alchemy": 1.0002,
+    "mobula": 1.0005,
+    "codex": 0.9998,
+    "coingecko": 1.0000,
+    "reference": 1.0000,
+    "variance": 0.05
+  }
+]
+```
+
+---
+
+### GET `/api/error-breakdown?range={timeRange}`
+
+Returns error counts by type.
+
+**Response:**
+```json
+{
+  "alchemy": {
+    "success": 98,
+    "rate_limit": 2
+  },
+  "mobula": {
+    "success": 85,
+    "rate_limit": 10,
+    "server_error": 5
+  }
+}
+```
+
+---
+
+### GET `/api/graph/{metric}?range={timeRange}`
+
+Returns time-series data for visualization.
+
+**Metrics:**
+- `avg-latency`
+- `p95-latency`
+- `success-rate`
+- `accuracy-rate`
+- `failed-requests`
+- `throughput`
+
+**Response:**
+```json
+[
+  {
+    "time": "2025-02-03T14:20:00Z",
+    "alchemy": 145.2,
+    "mobula": 89.5,
+    "codex": 201.3,
+    "coingecko": 312.1
+  }
+]
+```
 
 
-## 🔍 Key Metrics Explained
+**Built with ❤️ for the Web3 community**
 
-- **Average Latency**: Mean time for all requests - shows typical performance
-- **P50 (Median)**: Middle value - 50% of requests are faster
-- **P95**: 95% of requests complete within this time - good for SLA guarantees
-- **Success Rate**: Percentage of requests without errors
-- **Failed Requests**: Count of timeout, error, or invalid responses
-
-
-
-- [Live Demo](https://api-platforms-benchmark.onrender.com/)
-- [Alchemy Documentation](https://docs.alchemy.com/)
-- [Mobula API Docs](https://docs.mobula.io/)
-- [Codex Documentation](https://docs.codex.io/)
-
-## 👤 Author
-
-**uniiquecornnx**
-- GitHub: [@uniiquecornnx](https://github.com/uniiquecornnx)
-
-## 📊 Sample Results
-
-Based on typical benchmark runs:
-
-| Provider | Avg Latency | P95 Latency | Success Rate |
-|----------|-------------|-------------|--------------|
-| Alchemy  | ~450ms      | ~850ms      | 98-100%      |
-| Mobula   | ~380ms      | ~720ms      | 95-100%      |
-| Codex    | ~520ms      | ~980ms      | 92-100%      |
-
-*Note: Actual results vary based on network conditions, API load, and geographic location*
-
-
-**⭐ If you find this project helpful, please consider giving it a star!**
+*Making API provider selection transparent and data-driven*
