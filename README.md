@@ -5,22 +5,6 @@ A comprehensive, real-time benchmarking platform for evaluating crypto data API 
 
 ---
 
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Why This Exists](#why-this-exists)
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Metrics Explained](#metrics-explained)
-- [API Endpoints](#api-endpoints)
-- [Configuration](#configuration)
-- [Screenshots](#screenshots)
-- [Contributing](#contributing)
-
----
-
 ## 🎯 Overview
 
 This tool provides **data-driven insights** for choosing between crypto API providers (Alchemy, Mobula, Codex) by continuously testing and validating their:
