@@ -1,4 +1,4 @@
-// server.js - Enhanced with CoinGecko as accuracy reference
+// server.js - Enhanced with CoinGecko as accuracy reference + GoldRush
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -25,14 +25,16 @@ const TOKENS = {
         address: '0xdac17f958d2ee523a2206206994597c13d831ec7',
         blockchain: 'Ethereum',
         coingeckoId: 'ethereum', // asset platform for CoinGecko
-        contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7'
+        contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        goldrushChain: 'eth-mainnet'
     },
     ETH: {
         symbol: 'ETH',
         address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
         blockchain: 'Ethereum',
         coingeckoId: 'ethereum',
-        contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2'
+        contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+        goldrushChain: 'eth-mainnet'
     }
 };
 
@@ -41,6 +43,7 @@ console.log('Alchemy:', process.env.ALCHEMY_API_KEY ? '✓ Configured' : '✗ Mi
 console.log('Mobula:', process.env.MOBULA_API_KEY ? '✓ Configured' : '✗ Missing');
 console.log('Codex:', process.env.CODEX_API_KEY ? '✓ Configured' : '✗ Missing');
 console.log('CoinGecko:', process.env.COINGECKO_API_KEY ? '✓ Configured' : '✗ Missing (will use public API)');
+console.log('GoldRush:', process.env.GOLDRUSH_API_KEY ? '✓ Configured' : '✗ Missing');
 
 // ====================================
 // COINGECKO REFERENCE PRICE FETCHER
@@ -95,6 +98,17 @@ function extractPrice(provider, responseData) {
             // Extract from CoinGecko response
             const contractAddr = Object.keys(responseData)[0];
             price = responseData[contractAddr]?.usd;
+        } else if (provider === 'goldrush') {
+            // GoldRush/Covalent returns prices in data wrapper OR directly
+            // Response structure: { data: [{ prices: [{ price: 123 }] }] } OR { prices: [{ price: 123 }] }
+            // Try data wrapper first (from pricing endpoint)
+            if (responseData?.data?.[0]?.prices?.[0]?.price) {
+                price = responseData.data[0].prices[0].price;
+            } 
+            // Fallback to direct prices array
+            else if (responseData?.prices?.[0]?.price) {
+                price = responseData.prices[0].price;
+            }
         }
         
         if (price === null || price === undefined) {
@@ -150,7 +164,7 @@ function calculateDeviation(priceValue, referencePrice) {
 }
 
 // ====================================
-// TEST 1: TOKEN PRICE FETCHING (Enhanced with CoinGecko)
+// TEST 1: TOKEN PRICE FETCHING (Enhanced with CoinGecko + GoldRush)
 // ====================================
 
 async function testTokenPrice(provider, tokenSymbol, coinGeckoReference = null) {
@@ -215,6 +229,17 @@ async function testTokenPrice(provider, tokenSymbol, coinGeckoReference = null) 
                 `https://api.coingecko.com/api/v3/simple/token_price/${token.coingeckoId}?contract_addresses=${token.contractAddress}&vs_currencies=usd`,
                 { headers }
             );
+        } else if (provider === 'goldrush') {
+            // GoldRush/Covalent API - historical prices endpoint
+            // Returns most recent price data when no date range specified
+            response = await fetch(
+                `https://api.covalenthq.com/v1/pricing/historical_by_addresses_v2/${token.goldrushChain}/USD/${token.address}/`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${process.env.GOLDRUSH_API_KEY}`
+                    }
+                }
+            );
         }
 
         statusCode = response.status;
@@ -267,7 +292,7 @@ async function testTokenPrice(provider, tokenSymbol, coinGeckoReference = null) 
 }
 
 // ====================================
-// TEST 2: WALLET BALANCE FETCHING (Enhanced)
+// TEST 2: WALLET BALANCE FETCHING (Enhanced with GoldRush)
 // ====================================
 
 async function testWalletBalance(provider, walletAddress) {
@@ -333,6 +358,17 @@ async function testWalletBalance(provider, walletAddress) {
                     }`
                 })
             });
+        } else if (provider === 'goldrush') {
+            // GoldRush/Covalent API - balances_v2 endpoint
+            // Returns all token balances with metadata
+            response = await fetch(
+                `https://api.covalenthq.com/v1/eth-mainnet/address/${walletAddress}/balances_v2/`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${process.env.GOLDRUSH_API_KEY}`
+                    }
+                }
+            );
         }
 
         statusCode = response.status;
@@ -371,10 +407,10 @@ async function testWalletBalance(provider, walletAddress) {
 app.post('/api/run-price-benchmark', async (req, res) => {
     console.log('\n🔄 Starting PRICE benchmark with CoinGecko reference...');
     console.log('Testing: Token price fetching for USDT and ETH');
-    console.log('Providers: Alchemy, Mobula, Codex, CoinGecko (reference)');
+    console.log('Providers: Alchemy, Mobula, Codex, CoinGecko (reference), GoldRush');
     console.log('Iterations: 10 per token per provider\n');
     
-    const providers = ['alchemy', 'mobula', 'codex', 'coingecko'];
+    const providers = ['alchemy', 'mobula', 'codex', 'coingecko', 'goldrush'];
     const tokens = ['USDT', 'ETH'];
     const iterations = 10;
     
@@ -456,10 +492,10 @@ app.post('/api/run-wallet-benchmark', async (req, res) => {
     console.log('\n🔄 Starting WALLET BALANCE benchmark...');
     console.log('Testing: Wallet token holdings');
     console.log('Wallet:', walletAddress);
-    console.log('Providers: Alchemy, Mobula, Codex');
+    console.log('Providers: Alchemy, Mobula, Codex, GoldRush');
     console.log('Iterations: 5 per provider\n');
     
-    const providers = ['alchemy', 'mobula', 'codex'];
+    const providers = ['alchemy', 'mobula', 'codex', 'goldrush'];
     const iterations = 5;
     
     const testStartTime = Date.now();
@@ -529,7 +565,7 @@ app.get('/api/summary', async (req, res) => {
     }
 
     const summary = {};
-    const providers = ['alchemy', 'mobula', 'codex', 'coingecko'];
+    const providers = ['alchemy', 'mobula', 'codex', 'coingecko', 'goldrush'];
 
     providers.forEach(provider => {
         const providerData = data.filter(d => d.provider === provider);
@@ -579,7 +615,7 @@ app.get('/api/summary', async (req, res) => {
     res.json(Object.values(summary));
 });
 
-// Get accuracy comparison data (now includes CoinGecko as reference)
+// Get accuracy comparison data (now includes CoinGecko as reference + GoldRush)
 app.get('/api/accuracy-comparison', async (req, res) => {
     const timeRange = req.query.range || '24h';
     let hours = 24;
@@ -619,6 +655,7 @@ app.get('/api/accuracy-comparison', async (req, res) => {
                 mobula: [], 
                 codex: [], 
                 coingecko: [],
+                goldrush: [],
                 reference: [] 
             };
         }
@@ -633,7 +670,7 @@ app.get('/api/accuracy-comparison', async (req, res) => {
 
     const result = Object.values(grouped).map(bucket => {
         const prices = {};
-        ['alchemy', 'mobula', 'codex', 'coingecko'].forEach(provider => {
+        ['alchemy', 'mobula', 'codex', 'coingecko', 'goldrush'].forEach(provider => {
             if (bucket[provider].length > 0) {
                 prices[provider] = bucket[provider].reduce((a, b) => a + b, 0) / bucket[provider].length;
             }
@@ -689,7 +726,7 @@ app.get('/api/error-breakdown', async (req, res) => {
     }
 
     const breakdown = {};
-    const providers = ['alchemy', 'mobula', 'codex', 'coingecko'];
+    const providers = ['alchemy', 'mobula', 'codex', 'coingecko', 'goldrush'];
 
     providers.forEach(provider => {
         const providerData = data.filter(d => d.provider === provider);
@@ -737,7 +774,7 @@ app.get('/api/graph/:metric', async (req, res) => {
         const bucket = time.toISOString();
         
         if (!grouped[bucket]) {
-            grouped[bucket] = { alchemy: [], mobula: [], codex: [], coingecko: [] };
+            grouped[bucket] = { alchemy: [], mobula: [], codex: [], coingecko: [], goldrush: [] };
         }
         
         grouped[bucket][row.provider].push(row);
@@ -746,7 +783,7 @@ app.get('/api/graph/:metric', async (req, res) => {
     const result = Object.keys(grouped).sort().map(time => {
         const bucket = { time };
         
-        ['alchemy', 'mobula', 'codex', 'coingecko'].forEach(provider => {
+        ['alchemy', 'mobula', 'codex', 'coingecko', 'goldrush'].forEach(provider => {
             const providerData = grouped[time][provider];
             
             if (providerData.length === 0) {
@@ -794,7 +831,7 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log('═══════════════════════════════════════════════');
-    console.log('   🚀 API Benchmark Server (CoinGecko Enhanced)');
+    console.log('   🚀 API Benchmark Server (Enhanced + GoldRush)');
     console.log('═══════════════════════════════════════════════');
     console.log(`   Dashboard: http://localhost:${PORT}`);
     console.log(`   Health: http://localhost:${PORT}/api/health`);

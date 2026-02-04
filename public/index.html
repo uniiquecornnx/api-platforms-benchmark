@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Benchmark Dashboard - CoinGecko Enhanced</title>
+    <title>API Benchmark Dashboard - Enhanced with GoldRush</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -42,7 +42,8 @@
             alchemy: '#10b981',
             mobula: '#eab308', 
             codex: '#3b82f6',
-            coingecko: '#8b5cf6'
+            coingecko: '#8b5cf6',
+            goldrush: '#f97316'
         };
 
         function Dashboard() {
@@ -277,7 +278,7 @@
                     </div>
 
                     {/* Price Comparison */}
-                    <h2 className="text-xl font-bold text-white mt-8 mb-4"> </h2>
+                    <h2 className="text-xl font-bold text-white mt-8 mb-4">💰 Price Accuracy Analysis</h2>
                     <AccuracyComparisonCard timeRange={timeRange} refresh={refreshKey} />
                 </div>
             );
@@ -291,6 +292,9 @@
                     </div>
                 );
             }
+
+            // Filter out CoinGecko - it's only used as a reference for accuracy validation
+            const filteredData = data.filter(row => row.provider !== 'coingecko');
 
             const getLatencyColor = (val) => {
                 if (val < 150) return 'text-green-400';
@@ -328,7 +332,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {data.map(row => (
+                            {filteredData.map(row => (
                                 <tr key={row.provider} className="border-t border-gray-700">
                                     <td className="px-4 py-3">
                                         <div className="flex items-center gap-2">
@@ -383,6 +387,18 @@
                 return null;
             }
 
+            // Filter out CoinGecko - it's only used as a reference
+            const filteredData = Object.keys(data)
+                .filter(provider => provider !== 'coingecko')
+                .reduce((obj, key) => {
+                    obj[key] = data[key];
+                    return obj;
+                }, {});
+
+            if (Object.keys(filteredData).length === 0) {
+                return null;
+            }
+
             const errorTypes = {
                 success: { label: 'Success', color: '#10b981' },
                 rate_limit: { label: 'Rate Limit', color: '#eab308' },
@@ -397,13 +413,13 @@
                 <div className="card rounded-lg p-4 mb-6">
                     <h3 className="text-lg font-semibold text-white mb-4">🔍 Error Type Breakdown</h3>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {Object.keys(data).map(provider => (
+                        {Object.keys(filteredData).map(provider => (
                             <div key={provider} className="bg-gray-800 rounded p-4">
                                 <h4 className="font-semibold capitalize mb-3" style={{ color: COLORS[provider] }}>
                                     {provider}
                                 </h4>
                                 <div className="space-y-2">
-                                    {Object.entries(data[provider]).map(([errorType, count]) => (
+                                    {Object.entries(filteredData[provider]).map(([errorType, count]) => (
                                         <div key={errorType} className="flex justify-between items-center text-sm">
                                             <span className="text-gray-300">{errorTypes[errorType]?.label || errorType}</span>
                                             <span className="font-mono font-semibold" style={{ color: errorTypes[errorType]?.color }}>
@@ -458,7 +474,7 @@
                 const ctx = chartRef.current.getContext('2d');
                 const filteredData = data.filter(d => d.token === selectedToken);
 
-                const datasets = ['alchemy', 'mobula', 'codex', 'coingecko'].map(provider => ({
+                const datasets = ['alchemy', 'mobula', 'codex', 'coingecko', 'goldrush'].map(provider => ({
                     label: provider.charAt(0).toUpperCase() + provider.slice(1),
                     data: filteredData.map(d => ({ x: new Date(d.time), y: d[provider] })).filter(d => d.y !== undefined),
                     borderColor: COLORS[provider],
@@ -565,7 +581,7 @@
                     </div>
                     <div className="mt-4 text-sm text-gray-400">
                         <p><strong className="text-purple-400">CoinGecko (dashed):</strong> Reference price - ground truth for accuracy validation</p>
-                        <p><strong className="text-blue-400">Alchemy/Mobula/Codex (solid):</strong> Prices from each API being tested</p>
+                        <p><strong className="text-blue-400">Alchemy/Mobula/Codex/GoldRush (solid):</strong> Prices from each API being tested</p>
                         <p><strong className="text-red-400">Red dotted line:</strong> Maximum deviation from CoinGecko (lower is better)</p>
                         <p className="mt-2 text-xs text-gray-500">Accuracy threshold: ±5% deviation from CoinGecko reference</p>
                     </div>
@@ -610,7 +626,8 @@
 
                 const ctx = chartRef.current.getContext('2d');
 
-                const datasets = ['alchemy', 'mobula', 'codex', 'coingecko'].map(provider => ({
+                // Filter out CoinGecko - only show actual providers being tested
+                const datasets = ['alchemy', 'mobula', 'codex', 'goldrush'].map(provider => ({
                     label: provider.charAt(0).toUpperCase() + provider.slice(1),
                     data: data.map(d => ({ x: new Date(d.time), y: d[provider] })),
                     borderColor: COLORS[provider],
